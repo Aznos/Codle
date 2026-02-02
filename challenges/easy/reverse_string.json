@@ -1,0 +1,25 @@
+{
+  "name": "Reverse String",
+  "difficulty": 1,
+  "short_description": "Reverse a string in place",
+  "description": "# Reverse String\n\nWrite a function that reverses a string. The input string is given as an array of characters `s`.\n\nYou must do this by modifying the input array in-place with O(1) extra memory.\n\n## Example 1\n\n```\nInput: s = [\"h\",\"e\",\"l\",\"l\",\"o\"]\nOutput: [\"o\",\"l\",\"l\",\"e\",\"h\"]\n```\n\n## Example 2\n\n```\nInput: s = [\"H\",\"a\",\"n\",\"n\",\"a\",\"h\"]\nOutput: [\"h\",\"a\",\"n\",\"n\",\"a\",\"H\"]\n```\n\n## Constraints\n\n- 1 <= s.length <= 10^5\n- s[i] is a printable ASCII character.",
+  "function_signature": "fn reverse_string(s: &mut Vec<char>)",
+  "tests": [
+    {
+      "input": {"s": ["h", "e", "l", "l", "o"]},
+      "expected": ["o", "l", "l", "e", "h"]
+    },
+    {
+      "input": {"s": ["H", "a", "n", "n", "a", "h"]},
+      "expected": ["h", "a", "n", "n", "a", "H"]
+    },
+    {
+      "input": {"s": ["a"]},
+      "expected": ["a"]
+    },
+    {
+      "input": {"s": ["a", "b"]},
+      "expected": ["b", "a"]
+    }
+  ]
+}

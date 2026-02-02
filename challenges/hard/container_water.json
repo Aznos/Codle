@@ -1,0 +1,25 @@
+{
+  "name": "Container With Most Water",
+  "difficulty": 6,
+  "short_description": "Find two lines that form a container with the most water",
+  "description": "# Container With Most Water\n\nYou are given an integer array `height` of length `n`. There are `n` vertical lines drawn such that the two endpoints of the `i`th line are `(i, 0)` and `(i, height[i])`.\n\nFind two lines that together with the x-axis form a container, such that the container contains the most water.\n\nReturn the maximum amount of water a container can store.\n\n**Notice** that you may not slant the container.\n\n## Example\n\n```\nInput: height = [1,8,6,2,5,4,8,3,7]\nOutput: 49\nExplanation: The vertical lines are represented by array [1,8,6,2,5,4,8,3,7].\nIn this case, the max area of water the container can contain is 49.\n```\n\n## Constraints\n\n- n == height.length\n- 2 <= n <= 10^5\n- 0 <= height[i] <= 10^4",
+  "function_signature": "fn max_area(height: Vec<i32>) -> i32",
+  "tests": [
+    {
+      "input": {"height": [1, 8, 6, 2, 5, 4, 8, 3, 7]},
+      "expected": 49
+    },
+    {
+      "input": {"height": [1, 1]},
+      "expected": 1
+    },
+    {
+      "input": {"height": [4, 3, 2, 1, 4]},
+      "expected": 16
+    },
+    {
+      "input": {"height": [1, 2, 1]},
+      "expected": 2
+    }
+  ]
+}

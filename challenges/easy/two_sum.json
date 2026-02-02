@@ -1,0 +1,29 @@
+{
+  "name": "Two Sum",
+  "difficulty": 2,
+  "short_description": "Find two numbers that add up to a target",
+  "description": "# Two Sum\n\nGiven an array of integers `nums` and an integer `target`, return the indices of the two numbers such that they add up to `target`.\n\nYou may assume that each input would have **exactly one solution**, and you may not use the same element twice.\n\nYou can return the answer in any order.\n\n## Example\n\n```\nInput: nums = [2, 7, 11, 15], target = 9\nOutput: [0, 1]\nExplanation: Because nums[0] + nums[1] == 9, we return [0, 1].\n```\n\n## Constraints\n\n- 2 <= nums.length <= 10^4\n- -10^9 <= nums[i] <= 10^9\n- -10^9 <= target <= 10^9\n- Only one valid answer exists.",
+  "function_signature": "fn two_sum(nums: Vec<i32>, target: i32) -> Vec<usize>",
+  "tests": [
+    {
+      "input": {"nums": [2, 7, 11, 15], "target": 9},
+      "expected": [0, 1]
+    },
+    {
+      "input": {"nums": [3, 2, 4], "target": 6},
+      "expected": [1, 2]
+    },
+    {
+      "input": {"nums": [3, 3], "target": 6},
+      "expected": [0, 1]
+    },
+    {
+      "input": {"nums": [1, 5, 8, 3, 9], "target": 12},
+      "expected": [1, 4]
+    },
+    {
+      "input": {"nums": [-1, -2, -3, -4, -5], "target": -8},
+      "expected": [2, 4]
+    }
+  ]
+}
