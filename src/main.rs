@@ -102,12 +102,36 @@ fn load_random_challenge(difficulty: Difficulty) -> Result<Challenge, String> {
         .map_err(|e| format!("Failed to deserialize challenges: {}", e))
 }
 
+fn display_challenge(challenge: &Challenge) {
+    println!("\n{}", "=".repeat(60));
+    println!("  CODLE - Daily Coding Challenge");
+    println!("{}\n", "=".repeat(60));
+
+    println!("Challenge: {}", challenge.name);
+    println!("Difficulty: {}/10", challenge.difficulty);
+    println!("Summary: {}\n", challenge.short_description);
+
+    println!("{}", "-".repeat(60));
+    println!("{}", challenge.description);
+    println!("{}", "-".repeat(60));
+
+    println!("\nFunction Signature:");
+    println!("  {}\n", challenge.function_signature);
+
+    println!("Test Cases: {} total", challenge.tests.len());
+
+    println!("\n{}", "=".repeat(60));
+    println!("Run `codle test` to check your solution");
+    println!("Run `codle submit` when you're ready to submit");
+    println!("{}\n", "=".repeat(60));
+}
+
 fn main() {
     let difficulty = Difficulty::Easy;
 
     match load_random_challenge(difficulty) {
         Ok(challenge) => {
-            println!("Challenge: {}", challenge.name);
+            display_challenge(&challenge);
         }
         Err(e) => {
             eprintln!("Failed to load challenges: {}", e);
