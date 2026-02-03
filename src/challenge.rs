@@ -1,6 +1,6 @@
 use std::fs;
 use std::path::PathBuf;
-use rand::prelude::SliceRandom;
+use chrono::{Datelike, Local};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use crate::difficulty::Difficulty;
@@ -44,7 +44,7 @@ pub fn get_challenges_dir() -> PathBuf {
     PathBuf::from("challenges")
 }
 
-pub fn load_random_challenge(difficulty: Difficulty) -> Result<Challenge, String> {
+pub fn load_daily_challenge(difficulty: Difficulty) -> Result<Challenge, String> {
     let challenges_dir = get_challenges_dir();
     let difficulty_dir = challenges_dir.join(difficulty.as_str());
 
@@ -55,7 +55,7 @@ pub fn load_random_challenge(difficulty: Difficulty) -> Result<Challenge, String
         ));
     }
 
-    let entries: Vec<_> = fs::read_dir(&difficulty_dir)
+    let mut entries: Vec<_> = fs::read_dir(&difficulty_dir)
         .map_err(|e| format!("Failed to read dir: {}", e))?
         .filter_map(|entry| entry.ok())
         .filter(|entry| {
@@ -74,8 +74,12 @@ pub fn load_random_challenge(difficulty: Difficulty) -> Result<Challenge, String
         ));
     }
 
-    let mut rng = rand::thread_rng();
-    let chosen = entries.choose(&mut rng).unwrap();
+    entries.sort_by_key(|e| e.path());
+    let today = Local::now().date_naive();
+    let day_number = today.num_days_from_ce() as usize;
+    let index = day_number % entries.len();
+
+    let chosen = &entries[index];
 
     let content = fs::read_to_string(chosen.path())
         .map_err(|e| format!("Failed to read challenges: {}", e))?;

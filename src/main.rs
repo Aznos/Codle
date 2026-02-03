@@ -2,14 +2,14 @@ mod difficulty;
 mod challenge;
 mod display;
 
-use crate::challenge::{load_random_challenge};
+use crate::challenge::load_daily_challenge;
 use crate::difficulty::Difficulty;
 use crate::display::display_challenge;
 
 fn main() {
     let difficulty = Difficulty::Easy;
 
-    match load_random_challenge(difficulty) {
+    match load_daily_challenge(difficulty) {
         Ok(challenge) => {
             display_challenge(&challenge);
         }
