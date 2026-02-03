@@ -1,21 +1,12 @@
-mod difficulty;
 mod challenge;
+mod cli;
+mod difficulty;
 mod display;
 
-use crate::challenge::load_daily_challenge;
-use crate::difficulty::Difficulty;
-use crate::display::display_challenge;
+use clap::Parser;
+use crate::cli::Cli;
 
 fn main() {
-    let difficulty = Difficulty::Easy;
-
-    match load_daily_challenge(difficulty) {
-        Ok(challenge) => {
-            display_challenge(&challenge);
-        }
-        Err(e) => {
-            eprintln!("Failed to load challenges: {}", e);
-            std::process::exit(1);
-        }
-    }
+    let cli = Cli::parse();
+    cli::run(cli);
 }
