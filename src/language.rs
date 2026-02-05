@@ -39,8 +39,8 @@ impl Language {
         match self {
             Language::Rs => ("cargo", &["test"]),
             Language::Py => ("pytest", &["test_solution.py", "-v"]),
-            Language::Kt => ("./gradlew", &["test"]),
-            Language::Java => ("./gradlew", &["test"]),
+            Language::Kt => ("./gradlew", &["clean", "test"]),
+            Language::Java => ("./gradlew", &["clean", "test"]),
             Language::C => ("make", &["test"]),
             Language::Cpp => ("make", &["test"]),
         }

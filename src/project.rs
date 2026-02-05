@@ -14,6 +14,8 @@ pub struct ProjectMetadata {
     pub language: Language,
     pub difficulty: Difficulty,
     pub function_name: String,
+    #[serde(default)]
+    pub initialized_at: Option<String>,
 }
 
 impl ProjectMetadata {
@@ -22,12 +24,14 @@ impl ProjectMetadata {
         language: Language,
         difficulty: Difficulty,
         function_name: String,
+        initialized_at: Option<String>,
     ) -> Self {
         Self {
             challenge_name,
             language,
             difficulty,
             function_name,
+            initialized_at,
         }
     }
 }

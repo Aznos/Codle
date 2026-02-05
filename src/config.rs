@@ -10,6 +10,8 @@ pub struct UserConfig {
     pub difficulty: Difficulty,
     pub boss_score: u32,
     pub challenges_completed: u32,
+    #[serde(default)]
+    pub last_completed_date: Option<String>,
 }
 
 impl Default for UserConfig {
@@ -18,6 +20,7 @@ impl Default for UserConfig {
             difficulty: Difficulty::Medium,
             boss_score: 0,
             challenges_completed: 0,
+            last_completed_date: None,
         }
     }
 }

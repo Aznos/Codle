@@ -19,7 +19,7 @@
     },
     {
       "input": {"nums": [1, 5, 8, 3, 9], "target": 12},
-      "expected": [1, 4]
+      "expected": [3, 4]
     },
     {
       "input": {"nums": [-1, -2, -3, -4, -5], "target": -8},

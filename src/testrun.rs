@@ -136,7 +136,7 @@ fn parse_pytest_output(_stdout: &str, _stderr: &str, combined: &str) -> Result<T
 fn parse_gradle_output(_stdout: &str, _stderr: &str, combined: &str) -> Result<TestSummary, String> {
     // Gradle test output:
     // "X tests completed, Y failed"
-    // Or look for individual test results
+    // Individual: "AppTest > test1() PASSED" or "AppTest > test1() FAILED"
 
     let mut passed = 0;
     let mut failed = 0;
@@ -165,13 +165,17 @@ fn parse_gradle_output(_stdout: &str, _stderr: &str, combined: &str) -> Result<T
         }
     }
 
-    // Fallback: look for PASSED/FAILED
+    // Fallback: count individual test result lines
+    // Match "TestClass > testMethod() PASSED/FAILED" pattern, not build status lines
     if total == 0 {
         for line in combined.lines() {
-            if line.contains("PASSED") {
-                passed += 1;
-            } else if line.contains("FAILED") {
-                failed += 1;
+            let trimmed = line.trim();
+            if trimmed.contains("()") {
+                if trimmed.ends_with("PASSED") {
+                    passed += 1;
+                } else if trimmed.ends_with("FAILED") {
+                    failed += 1;
+                }
             }
         }
         total = passed + failed;

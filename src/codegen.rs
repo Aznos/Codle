@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 
+use chrono::Local;
 use serde_json::Value;
 
 use crate::challenge::Challenge;
@@ -500,6 +501,7 @@ fn main() {{
         Language::Rs,
         difficulty,
         sig.name.clone(),
+        Some(Local::now().to_rfc3339()),
     );
     let metadata_content = metadata_json(&metadata);
 
@@ -617,6 +619,7 @@ if __name__ == "__main__":
         Language::Py,
         difficulty,
         sig.name.clone(),
+        Some(Local::now().to_rfc3339()),
     );
     let metadata_content = metadata_json(&metadata);
 
@@ -747,6 +750,7 @@ fun main() {{
         Language::Kt,
         difficulty,
         sig.name.clone(),
+        Some(Local::now().to_rfc3339()),
     );
     let metadata_content = metadata_json(&metadata);
 
@@ -757,6 +761,15 @@ set -e
 {}
 
 gradle init --type kotlin-application --dsl kotlin --project-name "{}" --package codle --no-incubating --overwrite
+
+cat >> app/build.gradle.kts << 'TESTLOG'
+
+tasks.withType<Test> {{
+    testLogging {{
+        events("passed", "failed", "skipped")
+    }}
+}}
+TESTLOG
 
 cat > app/src/main/kotlin/codle/App.kt << 'SOLUTION'
 {}
@@ -896,6 +909,7 @@ public class App {{
         Language::Java,
         difficulty,
         sig.name.clone(),
+        Some(Local::now().to_rfc3339()),
     );
     let metadata_content = metadata_json(&metadata);
 
@@ -906,6 +920,15 @@ set -e
 {}
 
 gradle init --type java-application --dsl groovy --project-name "{}" --package codle --no-incubating --overwrite
+
+cat >> app/build.gradle << 'TESTLOG'
+
+test {{
+    testLogging {{
+        events "passed", "failed", "skipped"
+    }}
+}}
+TESTLOG
 
 cat > app/src/main/java/codle/App.java << 'SOLUTION'
 {}
@@ -1106,6 +1129,7 @@ int main() {{
         Language::C,
         difficulty,
         sig.name.clone(),
+        Some(Local::now().to_rfc3339()),
     );
     let metadata_content = metadata_json(&metadata);
 
@@ -1327,6 +1351,7 @@ int main() {{
         Language::Cpp,
         difficulty,
         sig.name.clone(),
+        Some(Local::now().to_rfc3339()),
     );
     let metadata_content = metadata_json(&metadata);
 
