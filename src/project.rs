@@ -16,6 +16,8 @@ pub struct ProjectMetadata {
     pub function_name: String,
     #[serde(default)]
     pub initialized_at: Option<String>,
+    #[serde(default)]
+    pub challenge_difficulty: u8,
 }
 
 impl ProjectMetadata {
@@ -25,6 +27,7 @@ impl ProjectMetadata {
         difficulty: Difficulty,
         function_name: String,
         initialized_at: Option<String>,
+        challenge_difficulty: u8,
     ) -> Self {
         Self {
             challenge_name,
@@ -32,6 +35,7 @@ impl ProjectMetadata {
             difficulty,
             function_name,
             initialized_at,
+            challenge_difficulty,
         }
     }
 }

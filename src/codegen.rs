@@ -502,6 +502,7 @@ fn main() {{
         difficulty,
         sig.name.clone(),
         Some(Local::now().to_rfc3339()),
+        challenge.difficulty,
     );
     let metadata_content = metadata_json(&metadata);
 
@@ -620,6 +621,7 @@ if __name__ == "__main__":
         difficulty,
         sig.name.clone(),
         Some(Local::now().to_rfc3339()),
+        challenge.difficulty,
     );
     let metadata_content = metadata_json(&metadata);
 
@@ -751,6 +753,7 @@ fun main() {{
         difficulty,
         sig.name.clone(),
         Some(Local::now().to_rfc3339()),
+        challenge.difficulty,
     );
     let metadata_content = metadata_json(&metadata);
 
@@ -910,6 +913,7 @@ public class App {{
         difficulty,
         sig.name.clone(),
         Some(Local::now().to_rfc3339()),
+        challenge.difficulty,
     );
     let metadata_content = metadata_json(&metadata);
 
@@ -1130,6 +1134,7 @@ int main() {{
         difficulty,
         sig.name.clone(),
         Some(Local::now().to_rfc3339()),
+        challenge.difficulty,
     );
     let metadata_content = metadata_json(&metadata);
 
@@ -1352,6 +1357,7 @@ int main() {{
         difficulty,
         sig.name.clone(),
         Some(Local::now().to_rfc3339()),
+        challenge.difficulty,
     );
     let metadata_content = metadata_json(&metadata);
 

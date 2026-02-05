@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 use crate::challenge::load_daily_challenge;
 use crate::codegen::generate_scaffold;
 use crate::config;
-use crate::difficulty::Difficulty;
+use crate::difficulty::{calculate_boss_score, Difficulty};
 use crate::display::display_challenge;
 use crate::language::Language;
 use crate::project;
@@ -132,12 +132,18 @@ fn handle_difficulty(level: Option<Difficulty>) {
             println!("Current difficulty: {}", user_config.difficulty.display_name());
             println!("BOSS Score: {}", user_config.boss_score);
             println!("Challenges completed: {}", user_config.challenges_completed);
+            println!("Current streak: {} day(s)", user_config.current_streak);
+            println!("Longest streak: {} day(s)", user_config.longest_streak);
             println!();
-            println!("BOSS Score Multipliers:");
-            println!("  Easy:    1.0x");
-            println!("  Medium:  1.5x");
-            println!("  Hard:    2.5x");
-            println!("  Extreme: 4.0x");
+            println!("BOSS Score = challenge_difficulty + tier_bonus + streak_bonus");
+            println!();
+            println!("Tier bonuses:");
+            println!("  Easy:    +0");
+            println!("  Medium:  +1");
+            println!("  Hard:    +2");
+            println!("  Extreme: +3");
+            println!();
+            println!("Streak bonus: +1 per consecutive day (max +5)");
             println!();
             println!("To change: codle difficulty <level>");
         }
@@ -160,8 +166,8 @@ fn handle_difficulty(level: Option<Difficulty>) {
                 new_level.display_name()
             );
             println!(
-                "You'll now earn {} points per completed challenge!",
-                new_level.points_for_completion()
+                "Tier bonus is now +{} per challenge",
+                new_level.tier_offset()
             );
         }
     }
@@ -299,11 +305,35 @@ fn submit_solution() {
         std::process::exit(1);
     }
 
-    // All tests passed - complete the challenge
-    let points = metadata.difficulty.points_for_completion();
+    // All tests passed - compute streak
+    let yesterday = (Local::now() - chrono::Duration::days(1))
+        .format("%Y-%m-%d")
+        .to_string();
+
+    let streak = if let Some(ref last_date) = user_config.last_completed_date {
+        if last_date == &yesterday {
+            user_config.current_streak + 1
+        } else {
+            1
+        }
+    } else {
+        1
+    };
+
+    let streak_bonus = streak.min(5);
+    let points = calculate_boss_score(
+        metadata.challenge_difficulty,
+        &metadata.difficulty,
+        streak,
+    );
+
     user_config.boss_score += points;
     user_config.challenges_completed += 1;
     user_config.last_completed_date = Some(today);
+    user_config.current_streak = streak;
+    if streak > user_config.longest_streak {
+        user_config.longest_streak = streak;
+    }
 
     if let Err(e) = config::save_config(&user_config) {
         eprintln!("Failed to save progress: {}", e);
@@ -345,10 +375,16 @@ fn submit_solution() {
     println!("  Tests:      {}/{} passed", summary.passed, summary.total);
     println!("  Time taken: {}", time_display);
     println!();
-    println!("  Points earned: +{} ({}x multiplier)",
-        points, metadata.difficulty.boss_multiplier());
-    println!("  BOSS Score:    {}", user_config.boss_score);
-    println!("  Completed:     {} challenges total", user_config.challenges_completed);
+    println!(
+        "  Score: {} (challenge) + {} (tier) + {} (streak) = +{}",
+        metadata.challenge_difficulty,
+        metadata.difficulty.tier_offset(),
+        streak_bonus,
+        points
+    );
+    println!("  Streak:     {} day(s)", streak);
+    println!("  BOSS Score: {}", user_config.boss_score);
+    println!("  Completed:  {} challenges total", user_config.challenges_completed);
     println!();
     println!("========================================");
 }

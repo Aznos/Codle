@@ -12,6 +12,10 @@ pub struct UserConfig {
     pub challenges_completed: u32,
     #[serde(default)]
     pub last_completed_date: Option<String>,
+    #[serde(default)]
+    pub current_streak: u32,
+    #[serde(default)]
+    pub longest_streak: u32,
 }
 
 impl Default for UserConfig {
@@ -21,6 +25,8 @@ impl Default for UserConfig {
             boss_score: 0,
             challenges_completed: 0,
             last_completed_date: None,
+            current_streak: 0,
+            longest_streak: 0,
         }
     }
 }

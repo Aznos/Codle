@@ -29,16 +29,19 @@ impl Difficulty {
         }
     }
 
-    pub fn boss_multiplier(&self) -> f32 {
+    pub fn tier_offset(&self) -> u32 {
         match self {
-            Difficulty::Easy => 1.0,
-            Difficulty::Medium => 1.5,
-            Difficulty::Hard => 2.5,
-            Difficulty::Extreme => 4.0,
+            Difficulty::Easy => 0,
+            Difficulty::Medium => 1,
+            Difficulty::Hard => 2,
+            Difficulty::Extreme => 3,
         }
     }
+}
 
-    pub fn points_for_completion(&self) -> u32 {
-        (100.0 * self.boss_multiplier()) as u32
-    }
+pub fn calculate_boss_score(challenge_difficulty: u8, tier: &Difficulty, streak: u32) -> u32 {
+    let base = challenge_difficulty as u32;
+    let tier_bonus = tier.tier_offset();
+    let streak_bonus = streak.min(5);
+    base + tier_bonus + streak_bonus
 }
