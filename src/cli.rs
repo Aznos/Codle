@@ -108,37 +108,11 @@ fn init_challenge(language: Language) {
     }
 }
 
-fn print_run_instructions(language: Language, dir_name: &str) {
-    println!("To run your solution:");
+fn print_run_instructions(_language: Language, dir_name: &str) {
+    println!("To get started:");
     println!();
-    match language {
-        Language::Rs => {
-            println!("  cd {}", dir_name);
-            println!("  cargo run");
-        }
-        Language::Py => {
-            println!("  cd {}", dir_name);
-            println!("  ./setup.sh          # Create virtual environment (first time)");
-            println!("  source venv/bin/activate");
-            println!("  python solution.py");
-        }
-        Language::Kt => {
-            println!("  cd {}", dir_name);
-            println!("  gradle run          # Or: ./gradlew run");
-        }
-        Language::Java => {
-            println!("  cd {}", dir_name);
-            println!("  gradle run          # Or: ./gradlew run");
-        }
-        Language::C => {
-            println!("  cd {}", dir_name);
-            println!("  make && ./solution");
-        }
-        Language::Cpp => {
-            println!("  cd {}", dir_name);
-            println!("  make && ./solution");
-        }
-    }
+    println!("  cd {}", dir_name);
+    println!("  ./setup.sh");
 }
 
 fn test_solution() {

@@ -7,6 +7,47 @@ use crate::challenge::Challenge;
 use crate::language::Language;
 use crate::signature::{FunctionSignature, RustType};
 
+/// Write a setup.sh script and make it executable
+fn write_setup_script(output_dir: &Path, content: &str) -> Result<(), String> {
+    let setup_path = output_dir.join("setup.sh");
+    fs::write(&setup_path, content).map_err(|e| format!("Failed to write setup.sh: {}", e))?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&setup_path)
+            .map_err(|e| format!("Failed to get permissions: {}", e))?
+            .permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&setup_path, perms)
+            .map_err(|e| format!("Failed to set permissions: {}", e))?;
+    }
+
+    Ok(())
+}
+
+/// Escape content for use in a heredoc - handles single quotes in code
+fn escape_for_heredoc(content: &str) -> String {
+    content.to_string()
+}
+
+/// Generate bash snippet that checks required commands are available
+fn require_commands(commands: &[&str]) -> String {
+    let checks: Vec<String> = commands
+        .iter()
+        .map(|cmd| {
+            format!(
+                r#"if ! command -v {cmd} &> /dev/null; then
+    echo "Error: '{cmd}' is not installed. Please install it and try again."
+    exit 1
+fi"#,
+                cmd = cmd
+            )
+        })
+        .collect();
+    checks.join("\n")
+}
+
 pub fn generate_scaffold(
     challenge: &Challenge,
     sig: &FunctionSignature,
@@ -360,21 +401,6 @@ fn generate_rust(
     sig: &FunctionSignature,
     output_dir: &Path,
 ) -> Result<(), String> {
-    let src_dir = output_dir.join("src");
-    fs::create_dir_all(&src_dir).map_err(|e| format!("Failed to create src dir: {}", e))?;
-
-    // Cargo.toml
-    let cargo_toml = format!(
-        r#"[package]
-name = "{}"
-version = "0.1.0"
-edition = "2021"
-"#,
-        sig.name
-    );
-    fs::write(output_dir.join("Cargo.toml"), cargo_toml)
-        .map_err(|e| format!("Failed to write Cargo.toml: {}", e))?;
-
     // Build function signature
     let params_str: Vec<String> = sig
         .params
@@ -452,18 +478,33 @@ edition = "2021"
 }}
 
 fn main() {{
-{}}}
-"#,
+{}}}"#,
         sig.name,
         params_str.join(", "),
         ret_str,
         main_body
     );
 
-    fs::write(src_dir.join("main.rs"), main_rs)
-        .map_err(|e| format!("Failed to write main.rs: {}", e))?;
+    let setup_sh = format!(
+        r#"#!/bin/bash
+set -e
 
-    Ok(())
+{}
+
+cargo init --name "{}"
+
+cat > src/main.rs << 'SOLUTION'
+{}
+SOLUTION
+
+echo "Run: cargo run"
+"#,
+        require_commands(&["cargo"]),
+        sig.name,
+        escape_for_heredoc(&main_rs)
+    );
+
+    write_setup_script(output_dir, &setup_sh)
 }
 
 // --- Python generator ---
@@ -529,63 +570,45 @@ fn generate_python(
         }
     }
 
-    let content = format!(
+    let solution_py = format!(
         r#"def {}({}){}:
     pass
 
 
 if __name__ == "__main__":
-{}
-"#,
+{}"#,
         sig.name,
         params_str.join(", "),
         ret_hint,
         main_body,
     );
 
-    fs::write(output_dir.join("solution.py"), content)
-        .map_err(|e| format!("Failed to write solution.py: {}", e))?;
-
-    // Create requirements.txt (empty, for future dependencies)
-    fs::write(output_dir.join("requirements.txt"), "# Add dependencies here\n")
-        .map_err(|e| format!("Failed to write requirements.txt: {}", e))?;
-
-    // Create setup script for venv
-    let setup_sh = r#"#!/bin/bash
+    let setup_sh = format!(
+        r#"#!/bin/bash
 set -e
 
-echo "Creating Python virtual environment..."
-python3 -m venv venv
+{}
 
-echo "Activating virtual environment..."
+python3 -m venv venv
 source venv/bin/activate
 
-echo "Installing dependencies..."
+cat > requirements.txt << 'EOF'
+# Add dependencies here
+EOF
+
 pip install -r requirements.txt
 
-echo ""
-echo "Setup complete! To activate the virtual environment, run:"
-echo "  source venv/bin/activate"
-echo ""
-echo "To run your solution:"
-echo "  python solution.py"
-"#;
-    fs::write(output_dir.join("setup.sh"), setup_sh)
-        .map_err(|e| format!("Failed to write setup.sh: {}", e))?;
+cat > solution.py << 'SOLUTION'
+{}
+SOLUTION
 
-    // Make setup.sh executable on Unix
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mut perms = fs::metadata(output_dir.join("setup.sh"))
-            .map_err(|e| format!("Failed to get permissions: {}", e))?
-            .permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(output_dir.join("setup.sh"), perms)
-            .map_err(|e| format!("Failed to set permissions: {}", e))?;
-    }
+echo "Run: source venv/bin/activate && python solution.py"
+"#,
+        require_commands(&["python3", "pip"]),
+        escape_for_heredoc(&solution_py)
+    );
 
-    Ok(())
+    write_setup_script(output_dir, &setup_sh)
 }
 
 // --- Kotlin generator ---
@@ -595,10 +618,6 @@ fn generate_kotlin(
     sig: &FunctionSignature,
     output_dir: &Path,
 ) -> Result<(), String> {
-    // Create Gradle project structure
-    let src_dir = output_dir.join("src").join("main").join("kotlin");
-    fs::create_dir_all(&src_dir).map_err(|e| format!("Failed to create src dir: {}", e))?;
-
     let params_str: Vec<String> = sig
         .params
         .iter()
@@ -655,76 +674,38 @@ fn generate_kotlin(
         }
     }
 
-    let content = format!(
-        r#"fun {}({}){} {{
+    let app_kt = format!(
+        r#"package codle
+
+fun {}({}){} {{
     TODO()
 }}
 
 fun main() {{
-{}}}
-"#,
+{}}}"#,
         sig.name,
         params_str.join(", "),
         ret_str,
         main_body,
     );
 
-    fs::write(src_dir.join("Solution.kt"), content)
-        .map_err(|e| format!("Failed to write Solution.kt: {}", e))?;
+    let setup_sh = format!(
+        r#"#!/bin/bash
+set -e
 
-    // Create build.gradle.kts
-    let build_gradle = format!(
-        r#"plugins {{
-    kotlin("jvm") version "1.9.22"
-    application
-}}
+gradle init --type kotlin-application --dsl kotlin --project-name "{}" --package codle --no-incubating --overwrite
 
-group = "codle"
-version = "1.0-SNAPSHOT"
+cat > app/src/main/kotlin/codle/App.kt << 'SOLUTION'
+{}
+SOLUTION
 
-repositories {{
-    mavenCentral()
-}}
-
-dependencies {{
-    testImplementation(kotlin("test"))
-}}
-
-tasks.test {{
-    useJUnitPlatform()
-}}
-
-kotlin {{
-    jvmToolchain(17)
-}}
-
-application {{
-    mainClass.set("SolutionKt")
-}}
-"#
-    );
-    fs::write(output_dir.join("build.gradle.kts"), build_gradle)
-        .map_err(|e| format!("Failed to write build.gradle.kts: {}", e))?;
-
-    // Create settings.gradle.kts
-    let settings_gradle = format!(
-        r#"rootProject.name = "{}"
+echo "Run: ./gradlew run"
 "#,
-        sig.name
+        sig.name,
+        escape_for_heredoc(&app_kt)
     );
-    fs::write(output_dir.join("settings.gradle.kts"), settings_gradle)
-        .map_err(|e| format!("Failed to write settings.gradle.kts: {}", e))?;
 
-    // Create .gitignore
-    let gitignore = r#".gradle/
-build/
-.idea/
-*.iml
-"#;
-    fs::write(output_dir.join(".gitignore"), gitignore)
-        .map_err(|e| format!("Failed to write .gitignore: {}", e))?;
-
-    Ok(())
+    write_setup_script(output_dir, &setup_sh)
 }
 
 // --- Java generator ---
@@ -734,10 +715,6 @@ fn generate_java(
     sig: &FunctionSignature,
     output_dir: &Path,
 ) -> Result<(), String> {
-    // Create Gradle project structure
-    let src_dir = output_dir.join("src").join("main").join("java");
-    fs::create_dir_all(&src_dir).map_err(|e| format!("Failed to create src dir: {}", e))?;
-
     let params_str: Vec<String> = sig
         .params
         .iter()
@@ -816,15 +793,16 @@ fn generate_java(
         }
     }
 
-    let content = format!(
-        r#"public class Solution {{
+    let app_java = format!(
+        r#"package codle;
+
+public class App {{
     public static {} {}({}) {{
 {}    }}
 
     public static void main(String[] args) {{
 {}    }}
-}}
-"#,
+}}"#,
         ret_type,
         sig.name,
         params_str.join(", "),
@@ -832,64 +810,23 @@ fn generate_java(
         main_body,
     );
 
-    fs::write(src_dir.join("Solution.java"), content)
-        .map_err(|e| format!("Failed to write Solution.java: {}", e))?;
+    let setup_sh = format!(
+        r#"#!/bin/bash
+set -e
 
-    // Create build.gradle
-    let build_gradle = format!(
-        r#"plugins {{
-    id 'java'
-    id 'application'
-}}
+gradle init --type java-application --dsl groovy --project-name "{}" --package codle --no-incubating --overwrite
 
-group = 'codle'
-version = '1.0-SNAPSHOT'
+cat > app/src/main/java/codle/App.java << 'SOLUTION'
+{}
+SOLUTION
 
-repositories {{
-    mavenCentral()
-}}
-
-dependencies {{
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
-}}
-
-test {{
-    useJUnitPlatform()
-}}
-
-java {{
-    toolchain {{
-        languageVersion = JavaLanguageVersion.of(17)
-    }}
-}}
-
-application {{
-    mainClass = 'Solution'
-}}
-"#
-    );
-    fs::write(output_dir.join("build.gradle"), build_gradle)
-        .map_err(|e| format!("Failed to write build.gradle: {}", e))?;
-
-    // Create settings.gradle
-    let settings_gradle = format!(
-        r#"rootProject.name = '{}'
+echo "Run: ./gradlew run"
 "#,
-        sig.name
+        sig.name,
+        escape_for_heredoc(&app_java)
     );
-    fs::write(output_dir.join("settings.gradle"), settings_gradle)
-        .map_err(|e| format!("Failed to write settings.gradle: {}", e))?;
 
-    // Create .gitignore
-    let gitignore = r#".gradle/
-build/
-.idea/
-*.iml
-"#;
-    fs::write(output_dir.join(".gitignore"), gitignore)
-        .map_err(|e| format!("Failed to write .gitignore: {}", e))?;
-
-    Ok(())
+    write_setup_script(output_dir, &setup_sh)
 }
 
 // --- C generator ---
@@ -1027,15 +964,14 @@ fn generate_c(
         "#include <stdio.h>\n#include <stdbool.h>\n#include <stdlib.h>\n"
     };
 
-    let content = format!(
+    let solution_c = format!(
         r#"{includes}
 {ret_type} {name}({params}) {{
 {default_return}}}
 
 int main() {{
 {main_body}    return 0;
-}}
-"#,
+}}"#,
         includes = includes,
         ret_type = ret_type,
         name = sig.name,
@@ -1044,10 +980,6 @@ int main() {{
         main_body = main_body,
     );
 
-    fs::write(output_dir.join("solution.c"), content)
-        .map_err(|e| format!("Failed to write solution.c: {}", e))?;
-
-    // Create Makefile
     let makefile = r#"CC = gcc
 CFLAGS = -Wall -Wextra -std=c11 -g
 TARGET = solution
@@ -1064,20 +996,27 @@ run: $(TARGET)
 clean:
 	rm -f $(TARGET)
 
-.PHONY: all run clean
-"#;
-    fs::write(output_dir.join("Makefile"), makefile)
-        .map_err(|e| format!("Failed to write Makefile: {}", e))?;
+.PHONY: all run clean"#;
 
-    // Create .gitignore
-    let gitignore = r#"solution
-*.o
-*.dSYM/
-"#;
-    fs::write(output_dir.join(".gitignore"), gitignore)
-        .map_err(|e| format!("Failed to write .gitignore: {}", e))?;
+    let setup_sh = format!(
+        r#"#!/bin/bash
+set -e
 
-    Ok(())
+cat > Makefile << 'MAKEFILE'
+{}
+MAKEFILE
+
+cat > solution.c << 'SOLUTION'
+{}
+SOLUTION
+
+echo "Run: make && ./solution"
+"#,
+        makefile,
+        escape_for_heredoc(&solution_c)
+    );
+
+    write_setup_script(output_dir, &setup_sh)
 }
 
 // --- C++ generator ---
@@ -1178,7 +1117,7 @@ fn generate_cpp(
         includes.push("#include <string>");
     }
 
-    let content = format!(
+    let solution_cpp = format!(
         r#"{includes}
 
 {ret_type} {name}({params}) {{
@@ -1186,8 +1125,7 @@ fn generate_cpp(
 
 int main() {{
 {main_body}    return 0;
-}}
-"#,
+}}"#,
         includes = includes.join("\n"),
         ret_type = ret_type,
         name = sig.name,
@@ -1196,10 +1134,6 @@ int main() {{
         main_body = main_body,
     );
 
-    fs::write(output_dir.join("solution.cpp"), content)
-        .map_err(|e| format!("Failed to write solution.cpp: {}", e))?;
-
-    // Create Makefile
     let makefile = r#"CXX = g++
 CXXFLAGS = -Wall -Wextra -std=c++17 -g
 TARGET = solution
@@ -1216,18 +1150,25 @@ run: $(TARGET)
 clean:
 	rm -f $(TARGET)
 
-.PHONY: all run clean
-"#;
-    fs::write(output_dir.join("Makefile"), makefile)
-        .map_err(|e| format!("Failed to write Makefile: {}", e))?;
+.PHONY: all run clean"#;
 
-    // Create .gitignore
-    let gitignore = r#"solution
-*.o
-*.dSYM/
-"#;
-    fs::write(output_dir.join(".gitignore"), gitignore)
-        .map_err(|e| format!("Failed to write .gitignore: {}", e))?;
+    let setup_sh = format!(
+        r#"#!/bin/bash
+set -e
 
-    Ok(())
+cat > Makefile << 'MAKEFILE'
+{}
+MAKEFILE
+
+cat > solution.cpp << 'SOLUTION'
+{}
+SOLUTION
+
+echo "Run: make && ./solution"
+"#,
+        makefile,
+        escape_for_heredoc(&solution_cpp)
+    );
+
+    write_setup_script(output_dir, &setup_sh)
 }
