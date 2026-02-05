@@ -1,6 +1,7 @@
 mod challenge;
 mod cli;
 mod codegen;
+mod config;
 mod difficulty;
 mod display;
 mod language;

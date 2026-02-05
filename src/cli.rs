@@ -4,6 +4,7 @@ use clap::{Parser, Subcommand};
 
 use crate::challenge::load_daily_challenge;
 use crate::codegen::generate_scaffold;
+use crate::config;
 use crate::difficulty::Difficulty;
 use crate::display::display_challenge;
 use crate::language::Language;
@@ -23,6 +24,10 @@ pub enum Commands {
         #[arg(value_enum)]
         language: Language,
     },
+    Difficulty {
+        #[arg(value_enum)]
+        level: Option<Difficulty>,
+    },
     Test,
     Submit,
 }
@@ -31,15 +36,16 @@ pub fn run(cli: Cli) {
     match cli.command {
         None => show_challenge(),
         Some(Commands::Init { language }) => init_challenge(language),
+        Some(Commands::Difficulty { level }) => handle_difficulty(level),
         Some(Commands::Test) => test_solution(),
         Some(Commands::Submit) => submit_solution(),
     }
 }
 
 fn show_challenge() {
-    let difficulty = Difficulty::Easy;
+    let user_config = config::load_config();
 
-    match load_daily_challenge(difficulty) {
+    match load_daily_challenge(user_config.difficulty) {
         Ok(challenge) => {
             display_challenge(&challenge);
         }
@@ -51,9 +57,9 @@ fn show_challenge() {
 }
 
 fn init_challenge(language: Language) {
-    let difficulty = Difficulty::Easy;
+    let user_config = config::load_config();
 
-    let challenge = match load_daily_challenge(difficulty) {
+    let challenge = match load_daily_challenge(user_config.difficulty) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("Failed to load challenge: {}", e);
@@ -69,7 +75,6 @@ fn init_challenge(language: Language) {
         }
     };
 
-    // Create output directory from challenge name (snake_case)
     let dir_name = challenge
         .name
         .to_lowercase()
@@ -113,6 +118,49 @@ fn print_run_instructions(_language: Language, dir_name: &str) {
     println!();
     println!("  cd {}", dir_name);
     println!("  ./setup.sh");
+}
+
+fn handle_difficulty(level: Option<Difficulty>) {
+    let mut user_config = config::load_config();
+
+    match level {
+        None => {
+            println!("Current difficulty: {}", user_config.difficulty.display_name());
+            println!("BOSS Score: {}", user_config.boss_score);
+            println!("Challenges completed: {}", user_config.challenges_completed);
+            println!();
+            println!("BOSS Score Multipliers:");
+            println!("  Easy:    1.0x");
+            println!("  Medium:  1.5x");
+            println!("  Hard:    2.5x");
+            println!("  Extreme: 4.0x");
+            println!();
+            println!("To change: codle difficulty <level>");
+        }
+        Some(new_level) => {
+            let old_level = user_config.difficulty;
+            if old_level == new_level {
+                println!("Difficulty is already set to {}", new_level.display_name());
+                return;
+            }
+
+            user_config.difficulty = new_level;
+            if let Err(e) = config::save_config(&user_config) {
+                eprintln!("Failed to save config: {}", e);
+                std::process::exit(1);
+            }
+
+            println!(
+                "Difficulty changed from {} to {}",
+                old_level.display_name(),
+                new_level.display_name()
+            );
+            println!(
+                "You'll now earn {} points per completed challenge!",
+                new_level.points_for_completion()
+            );
+        }
+    }
 }
 
 fn test_solution() {
