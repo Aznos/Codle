@@ -693,6 +693,8 @@ fun main() {{
         r#"#!/bin/bash
 set -e
 
+{}
+
 gradle init --type kotlin-application --dsl kotlin --project-name "{}" --package codle --no-incubating --overwrite
 
 cat > app/src/main/kotlin/codle/App.kt << 'SOLUTION'
@@ -701,6 +703,7 @@ SOLUTION
 
 echo "Run: ./gradlew run"
 "#,
+        require_commands(&["gradle"]),
         sig.name,
         escape_for_heredoc(&app_kt)
     );
@@ -814,6 +817,8 @@ public class App {{
         r#"#!/bin/bash
 set -e
 
+{}
+
 gradle init --type java-application --dsl groovy --project-name "{}" --package codle --no-incubating --overwrite
 
 cat > app/src/main/java/codle/App.java << 'SOLUTION'
@@ -822,6 +827,7 @@ SOLUTION
 
 echo "Run: ./gradlew run"
 "#,
+        require_commands(&["gradle"]),
         sig.name,
         escape_for_heredoc(&app_java)
     );
@@ -1002,6 +1008,8 @@ clean:
         r#"#!/bin/bash
 set -e
 
+{}
+
 cat > Makefile << 'MAKEFILE'
 {}
 MAKEFILE
@@ -1012,6 +1020,7 @@ SOLUTION
 
 echo "Run: make && ./solution"
 "#,
+        require_commands(&["gcc", "make"]),
         makefile,
         escape_for_heredoc(&solution_c)
     );
@@ -1156,6 +1165,8 @@ clean:
         r#"#!/bin/bash
 set -e
 
+{}
+
 cat > Makefile << 'MAKEFILE'
 {}
 MAKEFILE
@@ -1166,6 +1177,7 @@ SOLUTION
 
 echo "Run: make && ./solution"
 "#,
+        require_commands(&["g++", "make"]),
         makefile,
         escape_for_heredoc(&solution_cpp)
     );
