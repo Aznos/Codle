@@ -1,7 +1,10 @@
 mod challenge;
 mod cli;
+mod codegen;
 mod difficulty;
 mod display;
+mod language;
+mod signature;
 
 use clap::Parser;
 use crate::cli::Cli;
