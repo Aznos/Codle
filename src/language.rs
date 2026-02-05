@@ -1,6 +1,8 @@
 use clap::ValueEnum;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Language {
     Rs,
     Py,
@@ -30,6 +32,17 @@ impl Language {
             Language::Java => "java",
             Language::C => "c",
             Language::Cpp => "cpp",
+        }
+    }
+
+    pub fn test_command(&self) -> (&'static str, &'static [&'static str]) {
+        match self {
+            Language::Rs => ("cargo", &["test"]),
+            Language::Py => ("pytest", &["test_solution.py", "-v"]),
+            Language::Kt => ("./gradlew", &["test"]),
+            Language::Java => ("./gradlew", &["test"]),
+            Language::C => ("make", &["test"]),
+            Language::Cpp => ("make", &["test"]),
         }
     }
 }

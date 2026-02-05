@@ -5,7 +5,10 @@ mod config;
 mod difficulty;
 mod display;
 mod language;
+mod project;
 mod signature;
+mod testgen;
+mod testrun;
 
 use clap::Parser;
 use crate::cli::Cli;

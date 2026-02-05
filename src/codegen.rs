@@ -4,8 +4,11 @@ use std::path::Path;
 use serde_json::Value;
 
 use crate::challenge::Challenge;
+use crate::difficulty::Difficulty;
 use crate::language::Language;
+use crate::project::{metadata_json, ProjectMetadata};
 use crate::signature::{FunctionSignature, RustType};
+use crate::testgen;
 
 /// Write a setup.sh script and make it executable
 fn write_setup_script(output_dir: &Path, content: &str) -> Result<(), String> {
@@ -26,7 +29,6 @@ fn write_setup_script(output_dir: &Path, content: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Escape content for use in a heredoc - handles single quotes in code
 fn escape_for_heredoc(content: &str) -> String {
     content.to_string()
 }
@@ -52,19 +54,20 @@ pub fn generate_scaffold(
     challenge: &Challenge,
     sig: &FunctionSignature,
     lang: Language,
+    difficulty: Difficulty,
     output_dir: &Path,
 ) -> Result<(), String> {
     match lang {
-        Language::Rs => generate_rust(challenge, sig, output_dir),
-        Language::Py => generate_python(challenge, sig, output_dir),
-        Language::Kt => generate_kotlin(challenge, sig, output_dir),
-        Language::Java => generate_java(challenge, sig, output_dir),
-        Language::C => generate_c(challenge, sig, output_dir),
-        Language::Cpp => generate_cpp(challenge, sig, output_dir),
+        Language::Rs => generate_rust(challenge, sig, difficulty, output_dir),
+        Language::Py => generate_python(challenge, sig, difficulty, output_dir),
+        Language::Kt => generate_kotlin(challenge, sig, difficulty, output_dir),
+        Language::Java => generate_java(challenge, sig, difficulty, output_dir),
+        Language::C => generate_c(challenge, sig, difficulty, output_dir),
+        Language::Cpp => generate_cpp(challenge, sig, difficulty, output_dir),
     }
 }
 
-fn translate_type(ty: &RustType, lang: Language) -> String {
+pub fn translate_type(ty: &RustType, lang: Language) -> String {
     match lang {
         Language::Rs => translate_type_rs(ty),
         Language::Py => translate_type_py(ty),
@@ -156,7 +159,7 @@ fn translate_type_cpp(ty: &RustType) -> String {
     }
 }
 
-fn render_value(value: &Value, ty: &RustType, lang: Language) -> String {
+pub fn render_value(value: &Value, ty: &RustType, lang: Language) -> String {
     match lang {
         Language::Rs => render_value_rs(value, ty),
         Language::Py => render_value_py(value, ty),
@@ -399,6 +402,7 @@ fn unwrap_mut_ref(ty: &RustType) -> &RustType {
 fn generate_rust(
     challenge: &Challenge,
     sig: &FunctionSignature,
+    difficulty: Difficulty,
     output_dir: &Path,
 ) -> Result<(), String> {
     // Build function signature
@@ -472,18 +476,32 @@ fn generate_rust(
         }
     }
 
+    // Generate test code
+    let tests_code = testgen::generate_rust_tests(sig, &challenge.tests);
+
     let main_rs = format!(
         r#"fn {}({}){} {{
     todo!()
 }}
 
 fn main() {{
-{}}}"#,
+{}}}
+{}"#,
         sig.name,
         params_str.join(", "),
         ret_str,
-        main_body
+        main_body,
+        tests_code
     );
+
+    // Create project metadata
+    let metadata = ProjectMetadata::new(
+        challenge.name.clone(),
+        Language::Rs,
+        difficulty,
+        sig.name.clone(),
+    );
+    let metadata_content = metadata_json(&metadata);
 
     let setup_sh = format!(
         r#"#!/bin/bash
@@ -497,11 +515,17 @@ cat > src/main.rs << 'SOLUTION'
 {}
 SOLUTION
 
+cat > .codle.json << 'METADATA'
+{}
+METADATA
+
 echo "Run: cargo run"
+echo "Test: cargo test"
 "#,
         require_commands(&["cargo"]),
         sig.name,
-        escape_for_heredoc(&main_rs)
+        escape_for_heredoc(&main_rs),
+        metadata_content
     );
 
     write_setup_script(output_dir, &setup_sh)
@@ -512,6 +536,7 @@ echo "Run: cargo run"
 fn generate_python(
     challenge: &Challenge,
     sig: &FunctionSignature,
+    difficulty: Difficulty,
     output_dir: &Path,
 ) -> Result<(), String> {
     let params_str: Vec<String> = sig
@@ -583,6 +608,18 @@ if __name__ == "__main__":
         main_body,
     );
 
+    // Generate test code
+    let tests_code = testgen::generate_python_tests(sig, &challenge.tests);
+
+    // Create project metadata
+    let metadata = ProjectMetadata::new(
+        challenge.name.clone(),
+        Language::Py,
+        difficulty,
+        sig.name.clone(),
+    );
+    let metadata_content = metadata_json(&metadata);
+
     let setup_sh = format!(
         r#"#!/bin/bash
 set -e
@@ -593,7 +630,7 @@ python3 -m venv venv
 source venv/bin/activate
 
 cat > requirements.txt << 'EOF'
-# Add dependencies here
+pytest
 EOF
 
 pip install -r requirements.txt
@@ -602,10 +639,21 @@ cat > solution.py << 'SOLUTION'
 {}
 SOLUTION
 
+cat > test_solution.py << 'TESTS'
+{}
+TESTS
+
+cat > .codle.json << 'METADATA'
+{}
+METADATA
+
 echo "Run: source venv/bin/activate && python solution.py"
+echo "Test: source venv/bin/activate && pytest test_solution.py -v"
 "#,
         require_commands(&["python3", "pip"]),
-        escape_for_heredoc(&solution_py)
+        escape_for_heredoc(&solution_py),
+        escape_for_heredoc(&tests_code),
+        metadata_content
     );
 
     write_setup_script(output_dir, &setup_sh)
@@ -616,6 +664,7 @@ echo "Run: source venv/bin/activate && python solution.py"
 fn generate_kotlin(
     challenge: &Challenge,
     sig: &FunctionSignature,
+    difficulty: Difficulty,
     output_dir: &Path,
 ) -> Result<(), String> {
     let params_str: Vec<String> = sig
@@ -689,6 +738,18 @@ fun main() {{
         main_body,
     );
 
+    // Generate test code
+    let tests_code = testgen::generate_kotlin_tests(sig, &challenge.tests);
+
+    // Create project metadata
+    let metadata = ProjectMetadata::new(
+        challenge.name.clone(),
+        Language::Kt,
+        difficulty,
+        sig.name.clone(),
+    );
+    let metadata_content = metadata_json(&metadata);
+
     let setup_sh = format!(
         r#"#!/bin/bash
 set -e
@@ -701,11 +762,23 @@ cat > app/src/main/kotlin/codle/App.kt << 'SOLUTION'
 {}
 SOLUTION
 
+mkdir -p app/src/test/kotlin/codle
+cat > app/src/test/kotlin/codle/AppTest.kt << 'TESTS'
+{}
+TESTS
+
+cat > .codle.json << 'METADATA'
+{}
+METADATA
+
 echo "Run: ./gradlew run"
+echo "Test: ./gradlew test"
 "#,
         require_commands(&["gradle"]),
         sig.name,
-        escape_for_heredoc(&app_kt)
+        escape_for_heredoc(&app_kt),
+        escape_for_heredoc(&tests_code),
+        metadata_content
     );
 
     write_setup_script(output_dir, &setup_sh)
@@ -716,6 +789,7 @@ echo "Run: ./gradlew run"
 fn generate_java(
     challenge: &Challenge,
     sig: &FunctionSignature,
+    difficulty: Difficulty,
     output_dir: &Path,
 ) -> Result<(), String> {
     let params_str: Vec<String> = sig
@@ -813,6 +887,18 @@ public class App {{
         main_body,
     );
 
+    // Generate test code
+    let tests_code = testgen::generate_java_tests(sig, &challenge.tests);
+
+    // Create project metadata
+    let metadata = ProjectMetadata::new(
+        challenge.name.clone(),
+        Language::Java,
+        difficulty,
+        sig.name.clone(),
+    );
+    let metadata_content = metadata_json(&metadata);
+
     let setup_sh = format!(
         r#"#!/bin/bash
 set -e
@@ -825,11 +911,23 @@ cat > app/src/main/java/codle/App.java << 'SOLUTION'
 {}
 SOLUTION
 
+mkdir -p app/src/test/java/codle
+cat > app/src/test/java/codle/AppTest.java << 'TESTS'
+{}
+TESTS
+
+cat > .codle.json << 'METADATA'
+{}
+METADATA
+
 echo "Run: ./gradlew run"
+echo "Test: ./gradlew test"
 "#,
         require_commands(&["gradle"]),
         sig.name,
-        escape_for_heredoc(&app_java)
+        escape_for_heredoc(&app_java),
+        escape_for_heredoc(&tests_code),
+        metadata_content
     );
 
     write_setup_script(output_dir, &setup_sh)
@@ -862,6 +960,7 @@ fn c_return_type(sig: &FunctionSignature) -> String {
 fn generate_c(
     challenge: &Challenge,
     sig: &FunctionSignature,
+    difficulty: Difficulty,
     output_dir: &Path,
 ) -> Result<(), String> {
     let params_str = expand_c_params(sig);
@@ -970,6 +1069,18 @@ fn generate_c(
         "#include <stdio.h>\n#include <stdbool.h>\n#include <stdlib.h>\n"
     };
 
+    // For C, we create solution.c without main() and a separate test file with main()
+    let solution_c_no_main = format!(
+        r#"{includes}
+{ret_type} {name}({params}) {{
+{default_return}}}"#,
+        includes = includes,
+        ret_type = ret_type,
+        name = sig.name,
+        params = params_str.join(", "),
+        default_return = default_return,
+    );
+
     let solution_c = format!(
         r#"{includes}
 {ret_type} {name}({params}) {{
@@ -986,23 +1097,43 @@ int main() {{
         main_body = main_body,
     );
 
+    // Generate test code
+    let tests_code = testgen::generate_c_tests(sig, &challenge.tests);
+
+    // Create project metadata
+    let metadata = ProjectMetadata::new(
+        challenge.name.clone(),
+        Language::C,
+        difficulty,
+        sig.name.clone(),
+    );
+    let metadata_content = metadata_json(&metadata);
+
     let makefile = r#"CC = gcc
 CFLAGS = -Wall -Wextra -std=c11 -g
 TARGET = solution
+TEST_TARGET = test_runner
 SRC = solution.c
+TEST_SRC = test_solution.c
 
 all: $(TARGET)
 
 $(TARGET): $(SRC)
 	$(CC) $(CFLAGS) -o $(TARGET) $(SRC)
 
+test: $(TEST_TARGET)
+	./$(TEST_TARGET)
+
+$(TEST_TARGET): $(TEST_SRC) solution_lib.c
+	$(CC) $(CFLAGS) -o $(TEST_TARGET) solution_lib.c $(TEST_SRC)
+
 run: $(TARGET)
 	./$(TARGET)
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(TEST_TARGET)
 
-.PHONY: all run clean"#;
+.PHONY: all run clean test"#;
 
     let setup_sh = format!(
         r#"#!/bin/bash
@@ -1018,11 +1149,27 @@ cat > solution.c << 'SOLUTION'
 {}
 SOLUTION
 
+cat > solution_lib.c << 'SOLUTION_LIB'
+{}
+SOLUTION_LIB
+
+cat > test_solution.c << 'TESTS'
+{}
+TESTS
+
+cat > .codle.json << 'METADATA'
+{}
+METADATA
+
 echo "Run: make && ./solution"
+echo "Test: make test"
 "#,
         require_commands(&["gcc", "make"]),
         makefile,
-        escape_for_heredoc(&solution_c)
+        escape_for_heredoc(&solution_c),
+        escape_for_heredoc(&solution_c_no_main),
+        escape_for_heredoc(&tests_code),
+        metadata_content
     );
 
     write_setup_script(output_dir, &setup_sh)
@@ -1033,6 +1180,7 @@ echo "Run: make && ./solution"
 fn generate_cpp(
     challenge: &Challenge,
     sig: &FunctionSignature,
+    difficulty: Difficulty,
     output_dir: &Path,
 ) -> Result<(), String> {
     let params_str: Vec<String> = sig
@@ -1126,6 +1274,33 @@ fn generate_cpp(
         includes.push("#include <string>");
     }
 
+    // For C++, we create a header file with the function declaration
+    let solution_hpp = format!(
+        r#"#pragma once
+{}
+{}
+
+{} {}({});"#,
+        if needs_vector { "#include <vector>" } else { "" },
+        if needs_string { "#include <string>" } else { "" },
+        ret_type,
+        sig.name,
+        params_str.join(", ")
+    );
+
+    let solution_cpp_lib = format!(
+        r#"{includes}
+#include "solution.hpp"
+
+{ret_type} {name}({params}) {{
+{default_return}}}"#,
+        includes = includes.join("\n"),
+        ret_type = ret_type,
+        name = sig.name,
+        params = params_str.join(", "),
+        default_return = default_return,
+    );
+
     let solution_cpp = format!(
         r#"{includes}
 
@@ -1143,23 +1318,44 @@ int main() {{
         main_body = main_body,
     );
 
+    // Generate test code
+    let tests_code = testgen::generate_cpp_tests(sig, &challenge.tests);
+
+    // Create project metadata
+    let metadata = ProjectMetadata::new(
+        challenge.name.clone(),
+        Language::Cpp,
+        difficulty,
+        sig.name.clone(),
+    );
+    let metadata_content = metadata_json(&metadata);
+
     let makefile = r#"CXX = g++
 CXXFLAGS = -Wall -Wextra -std=c++17 -g
 TARGET = solution
+TEST_TARGET = test_runner
 SRC = solution.cpp
+TEST_SRC = test_solution.cpp
+LIB_SRC = solution_lib.cpp
 
 all: $(TARGET)
 
 $(TARGET): $(SRC)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
 
+test: $(TEST_TARGET)
+	./$(TEST_TARGET)
+
+$(TEST_TARGET): $(TEST_SRC) $(LIB_SRC)
+	$(CXX) $(CXXFLAGS) -o $(TEST_TARGET) $(LIB_SRC) $(TEST_SRC)
+
 run: $(TARGET)
 	./$(TARGET)
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(TEST_TARGET)
 
-.PHONY: all run clean"#;
+.PHONY: all run clean test"#;
 
     let setup_sh = format!(
         r#"#!/bin/bash
@@ -1175,11 +1371,32 @@ cat > solution.cpp << 'SOLUTION'
 {}
 SOLUTION
 
+cat > solution.hpp << 'HEADER'
+{}
+HEADER
+
+cat > solution_lib.cpp << 'SOLUTION_LIB'
+{}
+SOLUTION_LIB
+
+cat > test_solution.cpp << 'TESTS'
+{}
+TESTS
+
+cat > .codle.json << 'METADATA'
+{}
+METADATA
+
 echo "Run: make && ./solution"
+echo "Test: make test"
 "#,
         require_commands(&["g++", "make"]),
         makefile,
-        escape_for_heredoc(&solution_cpp)
+        escape_for_heredoc(&solution_cpp),
+        escape_for_heredoc(&solution_hpp),
+        escape_for_heredoc(&solution_cpp_lib),
+        escape_for_heredoc(&tests_code),
+        metadata_content
     );
 
     write_setup_script(output_dir, &setup_sh)

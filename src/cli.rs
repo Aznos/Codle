@@ -1,3 +1,4 @@
+use std::env;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
@@ -8,7 +9,9 @@ use crate::config;
 use crate::difficulty::Difficulty;
 use crate::display::display_challenge;
 use crate::language::Language;
+use crate::project;
 use crate::signature::parse_signature;
+use crate::testrun;
 
 #[derive(Parser)]
 #[command(name = "codle")]
@@ -95,7 +98,7 @@ fn init_challenge(language: Language) {
         std::process::exit(1);
     }
 
-    match generate_scaffold(&challenge, &sig, language, &output_dir) {
+    match generate_scaffold(&challenge, &sig, language, user_config.difficulty, &output_dir) {
         Ok(()) => {
             println!(
                 "Initialized {} scaffold for '{}' in ./{}/",
@@ -164,8 +167,54 @@ fn handle_difficulty(level: Option<Difficulty>) {
 }
 
 fn test_solution() {
-    println!("Testing solution...");
-    println!("(Not yet implemented)");
+    let current_dir = env::current_dir().unwrap_or_else(|e| {
+        eprintln!("Failed to get current directory: {}", e);
+        std::process::exit(1);
+    });
+
+    // Load project metadata
+    let metadata = match project::load(&current_dir) {
+        Ok(m) => m,
+        Err(e) => {
+            eprintln!("{}", e);
+            std::process::exit(1);
+        }
+    };
+
+    println!(
+        "Running tests for {} ({})...",
+        metadata.challenge_name,
+        metadata.language.display_name()
+    );
+    println!();
+
+    // Run tests
+    let summary = match testrun::run_tests(metadata.language) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Failed to run tests: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    // Display results
+    println!("========================================");
+    if summary.failed == 0 {
+        println!(
+            "{}/{} tests passed",
+            summary.passed, summary.total
+        );
+    } else {
+        println!(
+            "{}/{} tests passed - {} failed",
+            summary.passed, summary.total, summary.failed
+        );
+    }
+    println!("========================================");
+
+    if summary.failed > 0 {
+        std::process::exit(1);
+    }
 }
 
 fn submit_solution() {
