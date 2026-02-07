@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::difficulty::Difficulty;
+use super::difficulty::Difficulty;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserConfig {

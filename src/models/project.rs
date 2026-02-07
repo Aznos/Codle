@@ -3,8 +3,8 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::difficulty::Difficulty;
-use crate::language::Language;
+use super::difficulty::Difficulty;
+use super::language::Language;
 
 const METADATA_FILE: &str = ".codle.json";
 

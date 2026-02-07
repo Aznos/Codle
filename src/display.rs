@@ -1,4 +1,4 @@
-use crate::challenge::Challenge;
+use crate::models::Challenge;
 
 pub fn display_challenge(challenge: &Challenge) {
     println!("\n{}", "=".repeat(60));

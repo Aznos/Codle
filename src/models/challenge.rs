@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use chrono::{Datelike, Local};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use crate::difficulty::Difficulty;
+use super::difficulty::Difficulty;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Challenge {
