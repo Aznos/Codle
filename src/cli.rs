@@ -34,6 +34,7 @@ pub enum Commands {
     },
     Test,
     Submit,
+    Info,
 }
 
 pub fn run(cli: Cli) {
@@ -43,6 +44,7 @@ pub fn run(cli: Cli) {
         Some(Commands::Difficulty { level }) => handle_difficulty(level),
         Some(Commands::Test) => test_solution(),
         Some(Commands::Submit) => submit_solution(),
+        Some(Commands::Info) => generic_info()
     }
 }
 
@@ -387,4 +389,22 @@ fn submit_solution() {
     println!("  Completed:  {} challenges total", user_config.challenges_completed);
     println!();
     println!("========================================");
+}
+
+fn generic_info() {
+    let mut user_config = config::load_config();
+    let today = Local::now().format("%Y-%m-%d").to_string();
+
+    if let Some(ref last_date) = user_config.last_completed_date {
+        if last_date == &today {
+            println!("You've completed today's challenge!");
+        } else {
+            println!("You still have a challenge to complete today!");
+        }
+    }
+
+    println!("\nBOSS Score: {}", user_config.boss_score);
+    println!("Challenges completed: {}", user_config.challenges_completed);
+    println!("Current streak: {}", user_config.current_streak);
+    println!("Longest streak: {}", user_config.longest_streak);
 }
