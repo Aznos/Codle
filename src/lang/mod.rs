@@ -80,6 +80,13 @@ fn unwrap_mut_ref(ty: &RustType) -> &RustType {
     }
 }
 
+fn get_first_mut_ref_inner_type(sig: &FunctionSignature) -> Option<&RustType> {
+    sig.params
+        .iter()
+        .find(|p| matches!(&p.ty, RustType::MutRef(_)))
+        .map(|p| unwrap_mut_ref(&p.ty))
+}
+
 // --- Dispatch functions ---
 
 pub fn translate_type(ty: &RustType, lang: Language) -> String {

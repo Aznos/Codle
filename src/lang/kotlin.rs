@@ -7,6 +7,7 @@ use crate::models::{
 use super::{
     write_setup_script, require_commands, escape_for_heredoc,
     is_void_with_mut_ref, get_first_test_inputs, unwrap_mut_ref,
+    get_first_mut_ref_inner_type,
 };
 
 pub(super) fn translate_type_kt(ty: &RustType) -> String {
@@ -70,7 +71,13 @@ pub(super) fn generate_kotlin(
             )
         })
         .collect();
-    let ret_str = if sig.return_type == RustType::Void {
+    let ret_str = if is_void_with_mut_ref(sig) {
+        if let Some(inner_ty) = get_first_mut_ref_inner_type(sig) {
+            format!(": {}", super::translate_type(inner_ty, Language::Kt))
+        } else {
+            String::new()
+        }
+    } else if sig.return_type == RustType::Void {
         String::new()
     } else {
         format!(": {}", super::translate_type(&sig.return_type, Language::Kt))
@@ -90,10 +97,12 @@ pub(super) fn generate_kotlin(
                 }
             }
             let call_args: Vec<String> = sig.params.iter().map(|p| p.name.clone()).collect();
-            main_body.push_str(&format!("    {}({})\n", sig.name, call_args.join(", ")));
-            if let Some(p) = sig.params.iter().find(|p| matches!(&p.ty, RustType::MutRef(_))) {
-                main_body.push_str(&format!("    println({})\n", p.name));
-            }
+            main_body.push_str(&format!(
+                "    val result = {}({})\n",
+                sig.name,
+                call_args.join(", ")
+            ));
+            main_body.push_str("    println(result)\n");
         } else {
             let mut args = Vec::new();
             for p in &sig.params {
@@ -205,15 +214,14 @@ pub(super) fn generate_kotlin_tests(sig: &FunctionSignature, tests: &[TestCase])
                     }
                 }
                 let call_args: Vec<String> = sig.params.iter().map(|p| p.name.clone()).collect();
-                body.push_str(&format!("        {}({})\n", sig.name, call_args.join(", ")));
-                if let Some(p) = sig
-                    .params
-                    .iter()
-                    .find(|p| matches!(&p.ty, RustType::MutRef(_)))
-                {
-                    let inner = unwrap_mut_ref(&p.ty);
-                    let expected = super::render_value(&test.expected, inner, Language::Kt);
-                    body.push_str(&format!("        assertEquals({}, {})\n", expected, p.name));
+                body.push_str(&format!(
+                    "        val result = {}({})\n",
+                    sig.name,
+                    call_args.join(", ")
+                ));
+                if let Some(inner_ty) = get_first_mut_ref_inner_type(sig) {
+                    let expected = super::render_value(&test.expected, inner_ty, Language::Kt);
+                    body.push_str(&format!("        assertEquals({}, result)\n", expected));
                 }
             } else {
                 let mut args = Vec::new();

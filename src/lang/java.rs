@@ -7,6 +7,7 @@ use crate::models::{
 use super::{
     write_setup_script, require_commands, escape_for_heredoc,
     is_void_with_mut_ref, get_first_test_inputs, unwrap_mut_ref,
+    get_first_mut_ref_inner_type,
 };
 
 pub(super) fn translate_type_java(ty: &RustType) -> String {
@@ -71,14 +72,28 @@ pub(super) fn generate_java(
         })
         .collect();
 
-    let ret_type = super::translate_type(&sig.return_type, Language::Java);
-    let default_return = match &sig.return_type {
+    let ret_type = if is_void_with_mut_ref(sig) {
+        if let Some(inner_ty) = get_first_mut_ref_inner_type(sig) {
+            super::translate_type(inner_ty, Language::Java)
+        } else {
+            super::translate_type(&sig.return_type, Language::Java)
+        }
+    } else {
+        super::translate_type(&sig.return_type, Language::Java)
+    };
+
+    let effective_return_type = if is_void_with_mut_ref(sig) {
+        get_first_mut_ref_inner_type(sig).unwrap_or(&sig.return_type)
+    } else {
+        &sig.return_type
+    };
+    let default_return = match effective_return_type {
         RustType::Void => String::new(),
         RustType::Bool => "        return false;\n".to_string(),
         RustType::I32 | RustType::Usize => "        return 0;\n".to_string(),
         RustType::F64 => "        return 0.0;\n".to_string(),
         RustType::String => "        return \"\";\n".to_string(),
-        RustType::Vec(_) => format!("        return new {};\n", render_value_java(&Value::Array(vec![]), &sig.return_type)),
+        RustType::Vec(_) => format!("        return new {};\n", render_value_java(&Value::Array(vec![]), effective_return_type)),
         _ => "        return null;\n".to_string(),
     };
 
@@ -98,15 +113,17 @@ pub(super) fn generate_java(
             }
             let call_args: Vec<String> = sig.params.iter().map(|p| p.name.clone()).collect();
             main_body.push_str(&format!(
-                "        {}({});\n",
+                "        {} result = {}({});\n",
+                ret_type,
                 sig.name,
                 call_args.join(", ")
             ));
-            if let Some(p) = sig.params.iter().find(|p| matches!(&p.ty, RustType::MutRef(_))) {
-                main_body.push_str(&format!(
-                    "        System.out.println(java.util.Arrays.toString({}));\n",
-                    p.name
-                ));
+            if matches!(effective_return_type, RustType::Vec(_)) {
+                main_body.push_str(
+                    "        System.out.println(java.util.Arrays.toString(result));\n",
+                );
+            } else {
+                main_body.push_str("        System.out.println(result);\n");
             }
         } else {
             let mut args = Vec::new();
@@ -230,22 +247,26 @@ pub(super) fn generate_java_tests(sig: &FunctionSignature, tests: &[TestCase]) -
                     }
                 }
                 let call_args: Vec<String> = sig.params.iter().map(|p| p.name.clone()).collect();
-                body.push_str(&format!(
-                    "        App.{}({});\n",
-                    sig.name,
-                    call_args.join(", ")
-                ));
-                if let Some(p) = sig
-                    .params
-                    .iter()
-                    .find(|p| matches!(&p.ty, RustType::MutRef(_)))
-                {
-                    let inner = unwrap_mut_ref(&p.ty);
-                    let expected = super::render_value(&test.expected, inner, Language::Java);
+                if let Some(inner_ty) = get_first_mut_ref_inner_type(sig) {
+                    let result_type = super::translate_type(inner_ty, Language::Java);
                     body.push_str(&format!(
-                        "        assertArrayEquals({}, {});\n",
-                        expected, p.name
+                        "        {} result = App.{}({});\n",
+                        result_type,
+                        sig.name,
+                        call_args.join(", ")
                     ));
+                    let expected = super::render_value(&test.expected, inner_ty, Language::Java);
+                    if matches!(inner_ty, RustType::Vec(_)) {
+                        body.push_str(&format!(
+                            "        assertArrayEquals({}, result);\n",
+                            expected
+                        ));
+                    } else {
+                        body.push_str(&format!(
+                            "        assertEquals({}, result);\n",
+                            expected
+                        ));
+                    }
                 }
             } else {
                 let mut args = Vec::new();
